@@ -1,0 +1,179 @@
+#
+any text between hashes is a command line
+earse hashes and use
+#
+
+Overview
+
+	In this lab, you will create virtual machines (VMs) and install web server on one of them.
+
+
+What you will do 
+
+	-Create a two Compute Engine virtual machines using the gcloud command-line interface.
+	-install a NGINX web server on one of them.
+
+
+Task 1: Sign in to the Google Cloud Platform (GCP) Console
+
+
+	-For each lab, you get a new GCP project and set of resources for a fixed time at no cost.
+
+	-Make sure you signed into Qwiklabs using an incognito window.
+
+	-There is no pause feature. You can restart if needed, but you have to start at the beginning.
+
+	-When ready, click start lab.
+
+	-Note your lab credentials. You will use them to sign in to Cloud Platform Console.
+
+	-Click Open Google Console.
+
+	-Click Use another account and copy/paste credentials for this lab into the prompts.
+
+	-If you use other credentials, you'll get errors or incur charges.
+
+	-Accept the terms and skip the recovery resource page.
+
+	-Do not click End Lab unless you are finished with the lab or want to restart it. This clears your work and removes the project.
+
+
+
+Task 2: Create two virtual machines using the cloud command-line interface.
+    
+
+	1- In GCP console, on the top right toolbar, click the Open Cloud Shell button.
+
+	2- Click continue on pop up window for using Cloud Shell.
+
+	3- To display a list of all the zones in the region to which Qwiklabs assigned you, enter 
+	this partial command gcloud compute zones list | grep followed by the region that Qwiklabs 
+	or your instructor assigned you to.
+
+	Your completed command will look like this:
+
+			#
+			gcloud compute zones list | grep us-central1
+			#
+
+
+	4-Choose a zone from that list other than the zone to which Qwiklabs assigned you.
+	For example, if Qwiklabs assigned you to region us-central1 and zone us-central1-a
+	you might choose zone us-central1-b.
+
+	5-To set your default zone to the one you just chose, enter this partial command:
+
+			#
+			gcloud config set compute/zone (zone_name)
+			#
+
+	replace (zone_name) with us-central1-c.
+
+	(output)
+
+			=Updated property [compute/zone].
+
+
+	6-this following command says that i will create a virtual machine with name gcelab and 
+	resourses after equal and zone we preset in command after.
+
+			#
+			gcloud compute instances create gcelab \
+			--machine-type=n1-standard-1 \
+			--image-project=debian-cloud \
+			--image=debian-9-stretch-v20190213 \
+			--boot-disk-type=pd-standard \
+			--boot-disk-size=10GB \
+			--subnet=default 
+			#
+
+	creating VM might take some seconds
+
+	(output)
+			
+			= NAME    ZONE           MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+			gcelab  us-central1-c  n1-standard-1                 10.128.0.2  35.226.18.222  RUNNING
+
+
+	7-to create second virtual machine with just different name we will use same command but here we should add tags to
+  	examine what we will install and we already prdefind out zone for creating a VM.
+
+			#			
+			gcloud compute instances create gcelab2 \
+			--machine-type=n1-standard-1 \
+			--image-project=debian-cloud \
+			--image=debian-9-stretch-v20190213 \
+			--boot-disk-type=pd-standard \
+			--boot-disk-size=10GB \
+			--subnet=default \
+			--tags=http-server
+			#
+
+	creating VM might take some seconds
+
+	(output)
+
+			=NAME     ZONE           MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+			gcelab2  us-central1-c  n1-standard-1               10.128.0.3   34.121.197.171  RUNNING
+
+
+Task3: install NGINX web server.
+
+	1- we continue our lab on the cloud shell with gcloud command lines.firstly we use the following command to get ssh acces 
+   	to our second virtual machine. 
+
+			#
+			gcloud compute ssh gcelab2 --zone us-central1-c
+			#
+			
+	(output)
+			= Do you want to continue (Y/n)? (write Y)
+			= Enter passphrase (empty for no passphrase): (leave it empty press enter)
+			= Enter same passphrase again: (leave it empty press enter)
+
+                              
+	2- now we SSH'ed means we have propreat access to virtual machine. Once SSH'ed, get root access using sudo:
+
+			#
+			sudo su -
+			#
+
+	3- As the root user, update your OS:
+
+			#
+			apt-get update
+			#
+
+	4- now install NGINX:
+			
+			#
+			apt-get install nginx -y
+			#
+
+	(output)
+			
+			=Reading package lists... Done
+			=Building dependency tree
+			=Reading state information... Done
+			=The following additional packages will be installed:
+			=...
+
+	5- Check that NGINX is running:
+
+			#
+			ps auwx | grep nginx
+			#
+
+	6- now we exit from the root accessing and ssh accessing by exit double times:
+
+			#
+			exit
+			#
+			#
+			exit
+			#
+
+	7- In the Navigation menu, click Compute Engine > VM instances. to explore urself that webserver by using 
+   	external ip as in searching bar in your browser.
+		
+			

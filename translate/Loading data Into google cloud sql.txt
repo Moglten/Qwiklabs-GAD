@@ -1,0 +1,258 @@
+#
+any text between hashes is a command lineearse hashes and use
+#
+
+Overview
+
+	In this lab, you will learn how to import data from CSV text files into Cloud SQL and then 
+        carry out some basic data analysis using simple queries.
+
+What you will do 
+	
+       -Create Cloud SQL instance
+       -Create a Cloud SQL database
+       -Import text data into Cloud SQL
+       -Build an initial data model using queries
+
+
+
+Task 1: Sign in to the Google Cloud Platform (GCP) Console
+
+
+-For each lab, you get a new GCP project and set of resources for a fixed time at no cost.
+
+-Make sure you signed into Qwiklabs using an incognito window.
+
+-There is no pause feature. You can restart if needed, but you have to start at the beginning.
+
+-When ready, click start lab.
+
+-Note your lab credentials. You will use them to sign in to Cloud Platform Console.
+
+-Click Open Google Console.
+
+-Click Use another account and copy/paste credentials for this lab into the prompts.
+
+-If you use other credentials, you'll get errors or incur charges.
+
+-Accept the terms and skip the recovery resource page.
+
+-Do not click End Lab unless you are finished with the lab or want to restart it. This clears your work and removes the project.
+
+
+
+Task 2: Preparing your Enviroment:
+
+
+	1-In GCP console, on the top right toolbar, click the Open Cloud Shell button.
+
+	2-Click continue on pop up window for using Cloud Shell.
+
+	3- to clone the Data Science on Google Cloud Repository use that following command:
+
+			#
+			git clone https://github.com/GoogleCloudPlatform/data-science-on-gcp/
+			#
+
+	4- Change to the repository directory:
+		
+			#
+			cd data-science-on-gcp/03_sqlstudio	
+			#
+
+	5- Create environment variables that will be used later in the lab
+   	for your project ID and the storage bucket that will contain your data:
+		
+			#
+			export PROJECT_ID=$(gcloud info --format='value(config.project)')
+			export BUCKET=${PROJECT_ID}-ml
+			#
+
+
+
+Task 3: Create a Cloud SQL instance:
+
+
+	1- Enter the following commands to create a Cloud SQL instance:
+
+			#
+			gcloud sql instances create flights \
+    			--tier=db-n1-standard-1 --activation-policy=ALWAYS
+			#
+
+	2- set a root password for the Cloud SQL instance:
+			
+			#
+			gcloud sql users set-password root --host % --instance flights \
+ 			--password Passw0rd
+			#
+
+	3- Now create an environment variable with the IP address of the Cloud Shell:
+			
+			#
+			export ADDRESS=$(wget -qO - http://ipecho.net/plain)/32
+			#
+
+	4- gcloud sql instances patch flights --authorized-networks $ADDRESS
+
+			#
+			gcloud sql instances patch flights --authorized-networks $ADDRESS
+			#
+
+	5- Get the IP address of your Cloud SQL instance by running:
+
+			#
+			MYSQLIP=$(gcloud sql instances describe flights --format="value(ipAddresses.ipAddress)")
+			#
+
+	6- Check the variable MYSQLIP:
+
+			#
+			echo $MYSQLIP
+			#
+
+	you should get an IP address as an output here.
+
+	7- Create the flights table using the create_table.sql file.
+
+			#
+			mysql --host=$MYSQLIP --user=root --password --verbose < create_table.sql
+			#
+
+	When prompted for a password enter Passw0rd.
+
+	8- Connect to the mysql command line interface:
+
+			#
+			mysql --host=$MYSQLIP --user=root  --password
+			#
+
+	When prompted for a password enter Passw0rd.
+
+	9- In the mysql command line interface check the import by entering the following commands:
+
+			#
+			use bts;
+			describe flights;
+			#
+
+	10- Query the flights table:
+
+			#
+			select DISTINCT(FL_DATE) from flights;
+			#
+
+	This will return an empty set as there is no data in the database yet.
+
+	11- Exit the mysql interactive console:
+
+			#
+			exit
+			#
+
+
+
+Task 3:Add data to Cloud SQL instance:
+
+
+	1- Now you'll copy the CSV files stored on Cloud Storage locally. These are the source data files 
+	   that you learned how to retrieve in the Ingesting Data into the Cloud using Google App Engine lab.
+	   For this lab, they have been provided. You'll only be importing two months of data, about a million records, 
+           to keep resource usage low. by Run the following:
+			
+			#
+			counter=0
+			for FILE in 201501.csv 201502.csv; do
+   				gsutil cp gs://$BUCKET/flights/raw/$FILE flights.csv-${counter}
+  				counter=$((counter+1))
+			done
+			#
+
+	2- Import the CSV file data into Cloud SQL using mysql:
+
+			#
+			mysqlimport --local --host=$MYSQLIP --user=root --password \
+			--ignore-lines=1 --fields-terminated-by=',' bts flights.csv-*
+			#
+	
+	3- Connect to the mysql interactive console:
+
+			#
+			mysql --host=$MYSQLIP --user=root  --password
+			#
+
+
+
+Task 4: Build the initial data model:
+
+	
+	1- In the mysql interactive console select the database:
+			
+			#
+			use bts;
+			#
+
+	2- Query the flights table for unique dates:
+
+			#
+			select DISTINCT(FL_DATE) from flights;
+			#
+
+		This should return 59 days.
+
+	3- Query the flights table for unique carrier identifiers:
+
+			#
+			select DISTINCT(CARRIER) from flights;
+			#
+
+		This should return 14 carriers.
+	
+	The initial data model is based on the assertion that if a flight is greater than 15 minutes late departing
+	it will also be greater than 15 minutes arriving. You will use queries to see how well this holds true. 
+	There are four scenarios that will be considered for this initial model:
+
+    	1.Where the arrival delay is less than 15 minutes and departure delay was also less than 15 minutes. This is a true negative.
+    	2.Where the arrival delay is greater than 15 minutes and departure delay was less than 15 minutes. This is a false negative.
+    	3.Where the arrival delay is less than 15 minutes and departure delay was greater than 15 minutes. This is a false positive.
+    	4.Where the arrival delay is greater than 15 minutes and the departure delay is also greater than 15 minutes. This is a true positive.
+
+	4- Run the following:
+		
+			#
+			select count(dest) from flights where arr_delay < 15 and dep_delay < 15;
+			select count(dest) from flights where arr_delay >= 15 and dep_delay < 15;
+			select count(dest) from flights where arr_delay < 15 and dep_delay >= 15;
+			select count(dest) from flights where arr_delay >= 15 and dep_delay >= 15;
+			#
+
+	(output)This will provide the following totals:
+
+   		 	True Negative : 672038
+   		 	False Negative: 44855
+   		 	False Positive: 35991
+   		 	True Positive: 146275
+
+
+	5- You can now use environment variables to test different values for arrival and departure delay thresholds:
+
+			#
+			SET @ARR_DELAY_THRESH = 15;
+			SET @DEP_DELAY_THRESH = 10;
+			select count(dest) from flights where arr_delay < @ARR_DELAY_THRESH and dep_delay < @DEP_DELAY_THRESH;
+			select count(dest) from flights where arr_delay >= @ARR_DELAY_THRESH and dep_delay < @DEP_DELAY_THRESH;
+			select count(dest) from flights where arr_delay < @ARR_DELAY_THRESH and dep_delay >= @DEP_DELAY_THRESH;
+			select count(dest) from flights where arr_delay >= @ARR_DELAY_THRESH and dep_delay >= @DEP_DELAY_THRESH;
+			# 
+	(output)This will provide the following totals:
+
+   			True Negative: 642461
+    		 	False Negative: 35435
+   		 	False Positive: 65568
+   			True Positive: 155695
+
+	6- to Exit the 'mysql' interactive console:
+		
+			#
+			exit
+			#
